@@ -1,46 +1,120 @@
-const HistoryBuffer = require("./historyBuffer");
-
-const getSystem = require("./collectors/system");
-const getCpu = require("./collectors/cpu");
-const getMemory = require("./collectors/memory");
-const getGpu = require("./collectors/gpu");
-const getDisks = require("./collectors/disk");
-const getNetwork = require("./collectors/network");
-const getProcesses = require("./collectors/processes");
-const getTemperatures = require("./collectors/temperature");
+const si = require("systeminformation");
+const os = require("os");
+const { getGPU } = require("./collectors/gpu");
 
 class MetricsEngine {
-  constructor() {
-    this.cpuHistory = new HistoryBuffer();
-    this.memHistory = new HistoryBuffer();
-    this.gpuHistory = new HistoryBuffer();
-    this.current = null;
+  constructor(io) {
+    this.io = io;
+
+    this.mediumCache = {};
+    this.slowCache = {};
+
+    this.lastMediumRun = 0;
+    this.lastSlowRun = 0;
+
+    this.prevNetwork = null;
   }
 
-  async collect() {
-    const system = await getSystem();
-    const cpu = await getCpu(this.cpuHistory);
-    const memory = await getMemory(this.memHistory);
-    const gpu = await getGpu(this.gpuHistory);
-    const disks = await getDisks();
-    const network = await getNetwork();
-    const processes = await getProcesses();
-    const temperatures = await getTemperatures();
+  async start() {
+    this.loop();
+  }
 
-    this.current = {
-      ...system,
-      cpu,
-      memory,
-      gpu,
-      disks,
-      network,
-      processes,
-      temperatures
+  async loop() {
+    const start = Date.now();
+
+    await this.collectFast();
+    await this.collectMedium();
+    await this.collectSlow();
+
+    const elapsed = Date.now() - start;
+    const delay = Math.max(0, 1000 - elapsed);
+
+    setTimeout(() => this.loop(), delay);
+  }
+
+  // =========================
+  // FAST (Every 1 second)
+  // =========================
+  async collectFast() {
+    const [cpu, mem, network] = await Promise.all([
+      si.currentLoad(),
+      si.mem(),
+      si.networkStats()
+    ]);
+
+    const net = network[0];
+
+    let rxSpeed = 0;
+    let txSpeed = 0;
+
+    if (this.prevNetwork) {
+      rxSpeed = net.rx_bytes - this.prevNetwork.rx_bytes;
+      txSpeed = net.tx_bytes - this.prevNetwork.tx_bytes;
+    }
+
+    this.prevNetwork = net;
+
+    this.io.emit("fast_metrics", {
+      cpu: cpu.currentLoad,
+      memoryUsed: mem.used / 1024 / 1024 / 1024,
+      memoryTotal: mem.total / 1024 / 1024 / 1024,
+      rxSpeed,
+      txSpeed,
+      loadAvg: os.loadavg()
+    });
+  }
+
+  // =========================
+  // MEDIUM (Every 5 seconds)
+  // =========================
+  async collectMedium() {
+    const now = Date.now();
+    if (now - this.lastMediumRun < 5000) return;
+
+    const [diskIO, temp] = await Promise.all([
+      si.disksIO().catch(() => null),
+      si.cpuTemperature().catch(() => null)
+    ]);
+
+    this.mediumCache = {
+      diskIO: diskIO
+        ? {
+            rIO: diskIO.rIO_sec,
+            wIO: diskIO.wIO_sec
+          }
+        : null,
+      temperature: temp ? temp.main : null
     };
+
+    this.lastMediumRun = now;
+
+    this.io.emit("medium_metrics", this.mediumCache);
   }
 
-  getCurrent() {
-    return this.current;
+  // =========================
+  // SLOW (Every 20 seconds)
+  // =========================
+  async collectSlow() {
+    const now = Date.now();
+    if (now - this.lastSlowRun < 20000) return;
+
+    const [processes, gpu] = await Promise.all([
+      si.processes().catch(() => null),
+      getGPU().catch(() => null)
+    ]);
+
+    this.slowCache = {
+      processes: processes
+        ? processes.list
+            .sort((a, b) => b.cpu - a.cpu)
+            .slice(0, 10)
+        : null,
+      gpu
+    };
+
+    this.lastSlowRun = now;
+
+    this.io.emit("slow_metrics", this.slowCache);
   }
 }
 
