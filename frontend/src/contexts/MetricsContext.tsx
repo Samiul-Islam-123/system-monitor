@@ -11,35 +11,14 @@ import { apiService } from "@/services/apiService";
 
 export type RefreshMode = "5s" | "10s" | "1m" | "10m" | "live";
 
-// =========================
-// TYPES
-// =========================
-interface FastMetrics {
-  cpu: number;
-  memoryUsed: number;
-  memoryTotal: number;
-  rxSpeed: number;
-  txSpeed: number;
-  loadAvg: number[];
-}
-
-interface MediumMetrics {
-  diskIO: {
-    rIO: number;
-    wIO: number;
-  } | null;
-  temperature: number | null;
-}
-
-interface SlowMetrics {
-  processes: any[];
-  gpu: any[] | null;
-}
-
 interface SystemMetrics {
-  fast: FastMetrics;
-  medium: MediumMetrics;
-  slow: SlowMetrics;
+  cpu: { overall: number; loadAvg: number[] };
+  memory: { used: number; total: number };
+  network: { rx_sec: number; tx_sec: number }[];
+  disks: { rIO: number; wIO: number }[];
+  temperature: { main: number }[];
+  processes: any[];
+  gpu: any[];
 
   cpuHistory: number[];
   memoryHistory: number[];
@@ -65,35 +44,63 @@ const INTERVAL_MAP: Record<Exclude<RefreshMode, "live">, number> = {
   "10m": 600000
 };
 
-// =========================
-// SAFE DEFAULT STATE
-// =========================
 const defaultMetrics: SystemMetrics = {
-  fast: {
-    cpu: 0,
-    memoryUsed: 0,
-    memoryTotal: 0,
-    rxSpeed: 0,
-    txSpeed: 0,
-    loadAvg: [0, 0, 0]
-  },
-  medium: {
-    diskIO: null,
-    temperature: null
-  },
-  slow: {
-    processes: [],
-    gpu: null
-  },
+  cpu: { overall: 0, loadAvg: [0, 0, 0] },
+  memory: { used: 0, total: 0 },
+  network: [{ rx_sec: 0, tx_sec: 0 }],
+  disks: [],
+  temperature: [],
+  processes: [],
+  gpu: [],
   cpuHistory: [],
   memoryHistory: [],
   rxHistory: [],
   txHistory: []
 };
 
-// =========================
-// PROVIDER
-// =========================
+// 🔥 Adapter Function
+function adaptBackendData(data: any): Partial<SystemMetrics> {
+  return {
+    cpu: {
+      overall: data?.fast?.cpu ?? 0,
+      loadAvg: data?.fast?.loadAvg ?? [0, 0, 0]
+    },
+
+    memory: {
+      used: data?.fast?.memoryUsed ?? 0,
+      total: data?.fast?.memoryTotal ?? 0
+    },
+
+    network: [
+      {
+        rx_sec: data?.fast?.rxSpeed ?? 0,
+        tx_sec: data?.fast?.txSpeed ?? 0
+      }
+    ],
+
+    disks: data?.medium?.diskIO
+      ? [
+          {
+            rIO: data.medium.diskIO.rIO ?? 0,
+            wIO: data.medium.diskIO.wIO ?? 0
+          }
+        ]
+      : [],
+
+    temperature:
+      data?.medium?.temperature !== null &&
+      data?.medium?.temperature !== undefined
+        ? [{ main: data.medium.temperature }]
+        : [],
+
+    processes: Array.isArray(data?.slow?.processes)
+      ? data.slow.processes
+      : [],
+
+    gpu: Array.isArray(data?.slow?.gpu) ? data.slow.gpu : []
+  };
+}
+
 export function MetricsProvider({ children }: { children: React.ReactNode }) {
   const [metrics, setMetrics] = useState<SystemMetrics>(defaultMetrics);
   const [refreshMode, setRefreshMode] = useState<RefreshMode>("live");
@@ -103,87 +110,52 @@ export function MetricsProvider({ children }: { children: React.ReactNode }) {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // =========================
-  // FAST METRICS (LIVE)
+  // SOCKET HANDLERS
   // =========================
-  const handleFastMetrics = useCallback((data: Partial<FastMetrics>) => {
+  const handleFastMetrics = useCallback((data: any) => {
+    const adapted = adaptBackendData({ fast: data });
+
     setMetrics(prev => ({
       ...prev,
-      fast: {
-        cpu: data?.cpu ?? 0,
-        memoryUsed: data?.memoryUsed ?? 0,
-        memoryTotal: data?.memoryTotal ?? 0,
-        rxSpeed: data?.rxSpeed ?? 0,
-        txSpeed: data?.txSpeed ?? 0,
-        loadAvg: data?.loadAvg ?? [0, 0, 0]
-      },
-      cpuHistory: [...prev.cpuHistory, data?.cpu ?? 0].slice(-60),
-      memoryHistory: [...prev.memoryHistory, data?.memoryUsed ?? 0].slice(-60),
-      rxHistory: [...prev.rxHistory, data?.rxSpeed ?? 0].slice(-60),
-      txHistory: [...prev.txHistory, data?.txSpeed ?? 0].slice(-60)
+      ...adapted,
+      cpuHistory: [...prev.cpuHistory, adapted.cpu?.overall ?? 0].slice(-60),
+      memoryHistory: [...prev.memoryHistory, adapted.memory?.used ?? 0].slice(-60),
+      rxHistory: [...prev.rxHistory, adapted.network?.[0]?.rx_sec ?? 0].slice(-60),
+      txHistory: [...prev.txHistory, adapted.network?.[0]?.tx_sec ?? 0].slice(-60)
     }));
 
     setLastUpdated(new Date());
   }, []);
 
-  // =========================
-  // MEDIUM METRICS
-  // =========================
-  const handleMediumMetrics = useCallback((data: Partial<MediumMetrics>) => {
+  const handleMediumMetrics = useCallback((data: any) => {
+    const adapted = adaptBackendData({ medium: data });
+
     setMetrics(prev => ({
       ...prev,
-      medium: {
-        diskIO: data?.diskIO ?? null,
-        temperature: data?.temperature ?? null
-      }
+      ...adapted
+    }));
+  }, []);
+
+  const handleSlowMetrics = useCallback((data: any) => {
+    const adapted = adaptBackendData({ slow: data });
+
+    setMetrics(prev => ({
+      ...prev,
+      ...adapted
     }));
   }, []);
 
   // =========================
-  // SLOW METRICS
-  // =========================
-  const handleSlowMetrics = useCallback((data: Partial<SlowMetrics>) => {
-    setMetrics(prev => ({
-      ...prev,
-      slow: {
-        processes: Array.isArray(data?.processes)
-          ? data!.processes
-          : [],
-        gpu: Array.isArray(data?.gpu)
-          ? data!.gpu
-          : null
-      }
-    }));
-  }, []);
-
-  // =========================
-  // INITIAL FETCH (SAFE)
+  // INITIAL FETCH
   // =========================
   const fetchInitial = useCallback(async () => {
     try {
       const data = await apiService.getCurrentMetrics();
+      const adapted = adaptBackendData(data);
 
       setMetrics(prev => ({
         ...prev,
-        fast: {
-          cpu: data?.fast?.cpu ?? prev.fast.cpu,
-          memoryUsed: data?.fast?.memoryUsed ?? prev.fast.memoryUsed,
-          memoryTotal: data?.fast?.memoryTotal ?? prev.fast.memoryTotal,
-          rxSpeed: data?.fast?.rxSpeed ?? prev.fast.rxSpeed,
-          txSpeed: data?.fast?.txSpeed ?? prev.fast.txSpeed,
-          loadAvg: data?.fast?.loadAvg ?? prev.fast.loadAvg
-        },
-        medium: {
-          diskIO: data?.medium?.diskIO ?? null,
-          temperature: data?.medium?.temperature ?? null
-        },
-        slow: {
-          processes: Array.isArray(data?.slow?.processes)
-            ? data.slow.processes
-            : [],
-          gpu: Array.isArray(data?.slow?.gpu)
-            ? data.slow.gpu
-            : null
-        }
+        ...adapted
       }));
 
       setLastUpdated(new Date());
@@ -217,7 +189,7 @@ export function MetricsProvider({ children }: { children: React.ReactNode }) {
   }, [fetchInitial]);
 
   // =========================
-  // REFRESH MODE HANDLING
+  // REFRESH MODE
   // =========================
   useEffect(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
