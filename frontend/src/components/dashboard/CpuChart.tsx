@@ -1,0 +1,90 @@
+import { useMetrics } from '@/contexts/MetricsContext';
+import { Cpu } from 'lucide-react';
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from 'recharts';
+
+export function CpuChart() {
+  const { metrics } = useMetrics();
+  if (!metrics) return null;
+
+  const { cpu } = metrics;
+
+  return (
+    <div className="chart-container flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Cpu className="h-4 w-4 text-chart-cpu" />
+          <h3 className="text-sm font-semibold">CPU Usage</h3>
+        </div>
+        <span className="text-2xl font-bold font-mono text-chart-cpu">
+          {cpu.overall.toFixed(1)}%
+        </span>
+      </div>
+
+      {/* Model info */}
+      <div className="flex items-center justify-between text-xs text-muted-foreground font-mono">
+        <span>{cpu.model}</span>
+        <span>Load: {cpu.loadAvg.map(l => l.toFixed(2)).join(', ')}</span>
+      </div>
+
+      {/* Chart */}
+      <div className="h-40">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={cpu.history} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+            <defs>
+              <linearGradient id="cpuGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="hsl(var(--chart-cpu))" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="hsl(var(--chart-cpu))" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+            <XAxis dataKey="time" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
+            <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: 'hsl(var(--card))',
+                border: '1px solid hsl(var(--border))',
+                borderRadius: '6px',
+                fontSize: '12px',
+              }}
+              labelStyle={{ color: 'hsl(var(--foreground))' }}
+            />
+            <Area
+              type="monotone"
+              dataKey="usage"
+              stroke="hsl(var(--chart-cpu))"
+              strokeWidth={2}
+              fill="url(#cpuGradient)"
+              isAnimationActive={false}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Core grid */}
+      <div className="grid grid-cols-4 gap-2">
+        {cpu.cores.map((core) => (
+          <div key={core.id} className="bg-secondary rounded p-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">Core {core.id}</span>
+              <span className="font-mono font-medium">{core.usage.toFixed(0)}%</span>
+            </div>
+            <div className="mt-1 h-1 bg-muted rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{
+                  width: `${core.usage}%`,
+                  backgroundColor: core.usage > 80 ? 'hsl(var(--danger))' : core.usage > 50 ? 'hsl(var(--warning))' : 'hsl(var(--chart-cpu))',
+                }}
+              />
+            </div>
+            <div className="text-[10px] text-muted-foreground font-mono mt-1">
+              {core.frequency} MHz · {core.temperature}°C
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
