@@ -1,10 +1,35 @@
 import { useMetrics } from '@/contexts/MetricsContext';
-import { HardDrive } from 'lucide-react';
+import { HardDrive, AlertCircle } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 export function DiskPanel() {
-  const { metrics } = useMetrics();
-  if (!metrics) return null;
+  const { metrics, error } = useMetrics();
+  
+  if (error) {
+    return (
+      <div className="metric-card flex flex-col gap-3 p-4 bg-destructive/10 border border-destructive/30 rounded-lg">
+        <div className="flex items-center gap-2 text-destructive">
+          <AlertCircle className="h-4 w-4" />
+          <h3 className="text-sm font-semibold">Disk Metrics Error</h3>
+        </div>
+        <p className="text-sm text-muted-foreground">{error}</p>
+      </div>
+    );
+  }
+
+  if (!metrics) {
+    return (
+      <div className="metric-card flex flex-col gap-3 p-4 bg-muted rounded-lg">
+        <div className="flex items-center gap-2">
+          <HardDrive className="h-4 w-4 text-muted-foreground" />
+          <h3 className="text-sm font-semibold">Disk Usage</h3>
+        </div>
+        <div className="flex items-center justify-center h-32">
+          <div className="text-muted-foreground">Loading...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="metric-card flex flex-col gap-3">

@@ -1,12 +1,54 @@
 import { useMetrics } from '@/contexts/MetricsContext';
-import { Activity } from 'lucide-react';
+import { Activity, AlertCircle } from 'lucide-react';
 import { useState } from 'react';
 
 export function ProcessTable() {
-  const { metrics } = useMetrics();
+  const { metrics, error } = useMetrics();
   const [sortBy, setSortBy] = useState<'cpu' | 'memory'>('cpu');
 
-  if (!metrics) return null;
+  if (error) {
+    return (
+      <div className="metric-card flex flex-col gap-3 p-4 bg-destructive/10 border border-destructive/30 rounded-lg">
+        <div className="flex items-center gap-2 text-destructive">
+          <AlertCircle className="h-4 w-4" />
+          <h3 className="text-sm font-semibold">Process Metrics Error</h3>
+        </div>
+        <p className="text-sm text-muted-foreground">{error}</p>
+      </div>
+    );
+  }
+
+  if (!metrics) {
+    return (
+      <div className="metric-card flex flex-col gap-3 p-4 bg-muted rounded-lg">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Activity className="h-4 w-4 text-muted-foreground" />
+            <h3 className="text-sm font-semibold">Top Processes</h3>
+          </div>
+          <div className="flex items-center bg-secondary rounded p-0.5 text-xs">
+            <button
+              onClick={() => setSortBy('cpu')}
+              className={`px-2 py-0.5 rounded transition-colors ${
+                sortBy === 'cpu' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'
+              }`}
+            >
+              CPU
+            </button>
+            <button
+              onClick={() => setSortBy('memory')}
+              className={`px-2 py-0.5 rounded transition-colors ${
+                sortBy === 'memory' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'
+              }`}
+            >
+              MEM
+            </button>
+          </div>
+        </div>
+        <div className="text-xs text-muted-foreground text-center py-8">Loading processes...</div>
+      </div>
+    );
+  }
 
   const sorted = [...metrics.processes].sort((a, b) =>
     sortBy === 'cpu' ? b.cpu - a.cpu : b.memory - a.memory
@@ -55,7 +97,7 @@ export function ProcessTable() {
           </thead>
           <tbody>
             {sorted.map((proc, i) => (
-              <tr key={`${proc.pid}-${i}`} className="border-b border-border/50 hover:bg-secondary/50 transition-colors">
+              <tr key={`${proc.pid}-${proc.name}-${i}`} className="border-b border-border/50 hover:bg-secondary/50 transition-colors">
                 <td className="py-1.5 text-muted-foreground">{proc.pid}</td>
                 <td className="py-1.5 font-medium">{proc.name}</td>
                 <td className="py-1.5 text-muted-foreground">{proc.user}</td>

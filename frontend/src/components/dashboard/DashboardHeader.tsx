@@ -1,7 +1,7 @@
 import { useMetrics, type RefreshMode } from '@/contexts/MetricsContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { formatUptime } from '@/lib/mockData';
-import { Moon, Sun, Server, Wifi, WifiOff, Monitor } from 'lucide-react';
+import { Moon, Sun, Server, Wifi, WifiOff, Monitor, AlertTriangle, AlertCircle } from 'lucide-react';
 
 const REFRESH_OPTIONS: { value: RefreshMode; label: string }[] = [
   { value: '5s', label: '5s' },
@@ -12,7 +12,7 @@ const REFRESH_OPTIONS: { value: RefreshMode; label: string }[] = [
 ];
 
 export function DashboardHeader() {
-  const { metrics, refreshMode, setRefreshMode, isConnected, lastUpdated } = useMetrics();
+  const { metrics, error, refreshMode, setRefreshMode, isConnected, lastUpdated } = useMetrics();
   const { isDark, toggle } = useTheme();
 
   return (
@@ -21,23 +21,38 @@ export function DashboardHeader() {
         {/* Left: Branding + System Info */}
         <div className="flex items-center gap-3 min-w-0">
           <div className="flex items-center gap-2">
-            <Server className="h-5 w-5 text-primary shrink-0" />
-            <h1 className="text-lg font-semibold truncate">
-              {metrics?.hostname ?? 'System Monitor'}
-            </h1>
+            {error ? (
+              <>
+                <AlertCircle className="h-5 w-5 text-destructive shrink-0" />
+                <h1 className="text-lg font-semibold text-destructive">Connection Error</h1>
+              </>
+            ) : (
+              <>
+                <Server className="h-5 w-5 text-primary shrink-0" />
+                <h1 className="text-lg font-semibold truncate">
+                  {metrics?.hostname ?? 'System Monitor'}
+                </h1>
+              </>
+            )}
           </div>
-          {metrics && (
+          {!error && metrics && (
             <div className="hidden md:flex items-center gap-3 text-xs text-muted-foreground font-mono">
               <span>{metrics.os}</span>
               <span className="text-border">|</span>
               <span>{metrics.kernel}</span>
               <span className="text-border">|</span>
-              <span>Up {formatUptime(metrics.cpu.uptime)}</span>
+              <span>Up {formatUptime(metrics.cpu?.uptime || 0)}</span>
               <span className="text-border">|</span>
               <span className="flex items-center gap-1">
                 <Monitor className="h-3 w-3 text-chart-gpu" />
-                {metrics.gpu.name} · {metrics.gpu.utilization.toFixed(1)}% · {metrics.gpu.temperature}°C
+                {metrics.gpu?.name || 'GPU'} · {(metrics.gpu?.utilization || 0).toFixed(1)}% · {metrics.gpu?.temperature || 0}°C
               </span>
+            </div>
+          )}
+          {error && (
+            <div className="flex items-center gap-2 text-xs text-destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <span>{error}</span>
             </div>
           )}
         </div>
@@ -46,7 +61,12 @@ export function DashboardHeader() {
         <div className="flex items-center gap-2 shrink-0">
           {/* Connection status */}
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground mr-2">
-            {isConnected ? (
+            {error ? (
+              <>
+                <div className="status-dot-error" />
+                <WifiOff className="h-3.5 w-3.5 text-destructive" />
+              </>
+            ) : isConnected ? (
               <>
                 <div className="status-dot-live" />
                 <Wifi className="h-3.5 w-3.5 text-success" />
@@ -54,7 +74,7 @@ export function DashboardHeader() {
             ) : (
               <WifiOff className="h-3.5 w-3.5" />
             )}
-            {lastUpdated && (
+            {lastUpdated && !error && (
               <span className="hidden sm:inline font-mono">
                 {lastUpdated.toLocaleTimeString('en-US', { hour12: false })}
               </span>
@@ -74,6 +94,7 @@ export function DashboardHeader() {
                       : 'bg-primary text-primary-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
+                disabled={!!error}
               >
                 {label}
               </button>

@@ -1,12 +1,40 @@
 import { useMetrics } from '@/contexts/MetricsContext';
-import { Cpu } from 'lucide-react';
+import { Cpu, AlertCircle } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 
 export function CpuChart() {
-  const { metrics } = useMetrics();
-  if (!metrics) return null;
+  const { metrics, error } = useMetrics();
+  
+  if (error) {
+    return (
+      <div className="chart-container flex flex-col gap-3 p-4 bg-destructive/10 border border-destructive/30 rounded-lg">
+        <div className="flex items-center gap-2 text-destructive">
+          <AlertCircle className="h-4 w-4" />
+          <h3 className="text-sm font-semibold">CPU Metrics Error</h3>
+        </div>
+        <p className="text-sm text-muted-foreground">{error}</p>
+      </div>
+    );
+  }
+
+  if (!metrics) {
+    return (
+      <div className="chart-container flex flex-col gap-3 p-4 bg-muted rounded-lg">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Cpu className="h-4 w-4 text-muted-foreground" />
+            <h3 className="text-sm font-semibold">CPU Usage</h3>
+          </div>
+          <span className="text-2xl font-bold font-mono text-muted-foreground">--%</span>
+        </div>
+        <div className="h-40 flex items-center justify-center">
+          <div className="text-muted-foreground">Loading...</div>
+        </div>
+      </div>
+    );
+  }
 
   const { cpu } = metrics;
 
