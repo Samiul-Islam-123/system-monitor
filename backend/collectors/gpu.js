@@ -1,29 +1,40 @@
-const si = require("systeminformation");
+const { exec } = require("child_process");
 
-async function getGpu(historyBuffer) {
-  const graphics = await si.graphics();
-  const timeStr = new Date().toLocaleTimeString("en-GB", { hour12: false });
+function parseNvidiaSmi(output) {
+  const lines = output.trim().split("\n");
+  return lines.map(line => {
+    const [
+      name,
+      utilization,
+      memoryUsed,
+      memoryTotal,
+      temperature
+    ] = line.split(",").map(v => v.trim());
 
-  if (!graphics.controllers.length) return null;
-
-  const g = graphics.controllers[0];
-
-  historyBuffer.add({
-    time: timeStr,
-    utilization: g.utilizationGpu || 0,
-    temperature: g.temperatureGpu || 0
+    return {
+      name,
+      utilization: parseFloat(utilization),
+      memoryUsed: parseFloat(memoryUsed),
+      memoryTotal: parseFloat(memoryTotal),
+      temperature: parseFloat(temperature)
+    };
   });
-
-  return {
-    name: g.model,
-    utilization: g.utilizationGpu || 0,
-    memoryTotal: g.memoryTotal || 0,
-    memoryUsed: g.memoryUsed || 0,
-    temperature: g.temperatureGpu || 0,
-    fanSpeed: g.fanSpeed || 0,
-    power: g.powerDraw || 0,
-    history: historyBuffer.get()
-  };
 }
 
-module.exports = getGpu;
+async function getGPU() {
+  return new Promise((resolve) => {
+    exec(
+      `nvidia-smi --query-gpu=name,utilization.gpu,memory.used,memory.total,temperature.gpu --format=csv,noheader,nounits`,
+      (error, stdout) => {
+        if (error) {
+          return resolve(null); // no GPU
+        }
+
+        const gpus = parseNvidiaSmi(stdout);
+        resolve(gpus);
+      }
+    );
+  });
+}
+
+module.exports = { getGPU };
