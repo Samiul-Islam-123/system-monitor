@@ -11,6 +11,9 @@ import { apiService } from "@/services/apiService";
 
 export type RefreshMode = "5s" | "10s" | "1m" | "10m" | "live";
 
+// =========================
+// TYPES
+// =========================
 interface FastMetrics {
   cpu: number;
   memoryUsed: number;
@@ -62,6 +65,9 @@ const INTERVAL_MAP: Record<Exclude<RefreshMode, "live">, number> = {
   "10m": 600000
 };
 
+// =========================
+// SAFE DEFAULT STATE
+// =========================
 const defaultMetrics: SystemMetrics = {
   fast: {
     cpu: 0,
@@ -85,6 +91,9 @@ const defaultMetrics: SystemMetrics = {
   txHistory: []
 };
 
+// =========================
+// PROVIDER
+// =========================
 export function MetricsProvider({ children }: { children: React.ReactNode }) {
   const [metrics, setMetrics] = useState<SystemMetrics>(defaultMetrics);
   const [refreshMode, setRefreshMode] = useState<RefreshMode>("live");
@@ -94,16 +103,23 @@ export function MetricsProvider({ children }: { children: React.ReactNode }) {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // =========================
-  // FAST METRICS
+  // FAST METRICS (LIVE)
   // =========================
-  const handleFastMetrics = useCallback((data: FastMetrics) => {
+  const handleFastMetrics = useCallback((data: Partial<FastMetrics>) => {
     setMetrics(prev => ({
       ...prev,
-      fast: data,
-      cpuHistory: [...prev.cpuHistory, data.cpu].slice(-60),
-      memoryHistory: [...prev.memoryHistory, data.memoryUsed].slice(-60),
-      rxHistory: [...prev.rxHistory, data.rxSpeed].slice(-60),
-      txHistory: [...prev.txHistory, data.txSpeed].slice(-60)
+      fast: {
+        cpu: data?.cpu ?? 0,
+        memoryUsed: data?.memoryUsed ?? 0,
+        memoryTotal: data?.memoryTotal ?? 0,
+        rxSpeed: data?.rxSpeed ?? 0,
+        txSpeed: data?.txSpeed ?? 0,
+        loadAvg: data?.loadAvg ?? [0, 0, 0]
+      },
+      cpuHistory: [...prev.cpuHistory, data?.cpu ?? 0].slice(-60),
+      memoryHistory: [...prev.memoryHistory, data?.memoryUsed ?? 0].slice(-60),
+      rxHistory: [...prev.rxHistory, data?.rxSpeed ?? 0].slice(-60),
+      txHistory: [...prev.txHistory, data?.txSpeed ?? 0].slice(-60)
     }));
 
     setLastUpdated(new Date());
@@ -112,7 +128,7 @@ export function MetricsProvider({ children }: { children: React.ReactNode }) {
   // =========================
   // MEDIUM METRICS
   // =========================
-  const handleMediumMetrics = useCallback((data: MediumMetrics) => {
+  const handleMediumMetrics = useCallback((data: Partial<MediumMetrics>) => {
     setMetrics(prev => ({
       ...prev,
       medium: {
@@ -125,18 +141,22 @@ export function MetricsProvider({ children }: { children: React.ReactNode }) {
   // =========================
   // SLOW METRICS
   // =========================
-  const handleSlowMetrics = useCallback((data: SlowMetrics) => {
+  const handleSlowMetrics = useCallback((data: Partial<SlowMetrics>) => {
     setMetrics(prev => ({
       ...prev,
       slow: {
-        processes: data?.processes ?? [],
-        gpu: data?.gpu ?? null
+        processes: Array.isArray(data?.processes)
+          ? data!.processes
+          : [],
+        gpu: Array.isArray(data?.gpu)
+          ? data!.gpu
+          : null
       }
     }));
   }, []);
 
   // =========================
-  // INITIAL FETCH
+  // INITIAL FETCH (SAFE)
   // =========================
   const fetchInitial = useCallback(async () => {
     try {
@@ -144,9 +164,26 @@ export function MetricsProvider({ children }: { children: React.ReactNode }) {
 
       setMetrics(prev => ({
         ...prev,
-        fast: data?.fast ?? prev.fast,
-        medium: data?.medium ?? prev.medium,
-        slow: data?.slow ?? prev.slow
+        fast: {
+          cpu: data?.fast?.cpu ?? prev.fast.cpu,
+          memoryUsed: data?.fast?.memoryUsed ?? prev.fast.memoryUsed,
+          memoryTotal: data?.fast?.memoryTotal ?? prev.fast.memoryTotal,
+          rxSpeed: data?.fast?.rxSpeed ?? prev.fast.rxSpeed,
+          txSpeed: data?.fast?.txSpeed ?? prev.fast.txSpeed,
+          loadAvg: data?.fast?.loadAvg ?? prev.fast.loadAvg
+        },
+        medium: {
+          diskIO: data?.medium?.diskIO ?? null,
+          temperature: data?.medium?.temperature ?? null
+        },
+        slow: {
+          processes: Array.isArray(data?.slow?.processes)
+            ? data.slow.processes
+            : [],
+          gpu: Array.isArray(data?.slow?.gpu)
+            ? data.slow.gpu
+            : null
+        }
       }));
 
       setLastUpdated(new Date());
@@ -180,7 +217,7 @@ export function MetricsProvider({ children }: { children: React.ReactNode }) {
   }, [fetchInitial]);
 
   // =========================
-  // REFRESH MODE LOGIC
+  // REFRESH MODE HANDLING
   // =========================
   useEffect(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
