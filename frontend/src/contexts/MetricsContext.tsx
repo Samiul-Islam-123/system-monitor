@@ -71,26 +71,25 @@ export function MetricsProvider({ children }: { children: React.ReactNode }) {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // =========================
-  // MERGE FAST METRICS
+  // FAST METRICS HANDLER
   // =========================
   const handleFastMetrics = useCallback((data: FastMetrics) => {
     setMetrics(prev => {
-      const cpuHistory = [...(prev?.cpuHistory || []), data.cpu].slice(-60);
-      const memoryHistory = [
-        ...(prev?.memoryHistory || []),
-        data.memoryUsed
-      ].slice(-60);
-      const rxHistory = [...(prev?.rxHistory || []), data.rxSpeed].slice(-60);
-      const txHistory = [...(prev?.txHistory || []), data.txSpeed].slice(-60);
+      const previous = prev ?? {
+        cpuHistory: [],
+        memoryHistory: [],
+        rxHistory: [],
+        txHistory: []
+      };
 
       return {
         fast: data,
-        medium: prev?.medium,
-        slow: prev?.slow,
-        cpuHistory,
-        memoryHistory,
-        rxHistory,
-        txHistory
+        medium: previous.medium,
+        slow: previous.slow,
+        cpuHistory: [...previous.cpuHistory, data.cpu].slice(-60),
+        memoryHistory: [...previous.memoryHistory, data.memoryUsed].slice(-60),
+        rxHistory: [...previous.rxHistory, data.rxSpeed].slice(-60),
+        txHistory: [...previous.txHistory, data.txSpeed].slice(-60)
       };
     });
 
@@ -98,31 +97,32 @@ export function MetricsProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // =========================
-  // MERGE MEDIUM METRICS
+  // MEDIUM METRICS HANDLER
   // =========================
   const handleMediumMetrics = useCallback((data: MediumMetrics) => {
-    setMetrics(prev => ({
-      ...prev,
-      medium: data
-    }));
+    setMetrics(prev => {
+      if (!prev) return null;
+      return { ...prev, medium: data };
+    });
   }, []);
 
   // =========================
-  // MERGE SLOW METRICS
+  // SLOW METRICS HANDLER
   // =========================
   const handleSlowMetrics = useCallback((data: SlowMetrics) => {
-    setMetrics(prev => ({
-      ...prev,
-      slow: data
-    }));
+    setMetrics(prev => {
+      if (!prev) return null;
+      return { ...prev, slow: data };
+    });
   }, []);
 
   // =========================
-  // INITIAL SNAPSHOT (optional)
+  // INITIAL FETCH
   // =========================
   const fetchInitial = useCallback(async () => {
     try {
       const data = await apiService.getCurrentMetrics();
+
       setMetrics({
         ...data,
         cpuHistory: [],
@@ -130,8 +130,9 @@ export function MetricsProvider({ children }: { children: React.ReactNode }) {
         rxHistory: [],
         txHistory: []
       });
+
       setLastUpdated(new Date());
-    } catch (err: any) {
+    } catch {
       setError("Failed to fetch initial metrics");
     }
   }, []);
@@ -146,7 +147,7 @@ export function MetricsProvider({ children }: { children: React.ReactNode }) {
         setError(null);
       },
       () => setIsConnected(false),
-      (err: any) => {
+      () => {
         setIsConnected(false);
         setError("Socket connection error");
       }
@@ -166,25 +167,38 @@ export function MetricsProvider({ children }: { children: React.ReactNode }) {
     if (intervalRef.current) clearInterval(intervalRef.current);
 
     if (refreshMode === "live") {
-      socketService.on("fast_metrics", handleFastMetrics);
-      socketService.on("medium_metrics", handleMediumMetrics);
-      socketService.on("slow_metrics", handleSlowMetrics);
+      // Only subscribe if socketService supports it
+      if (typeof (socketService as any).on === "function") {
+        socketService.on("fast_metrics", handleFastMetrics);
+        socketService.on("medium_metrics", handleMediumMetrics);
+        socketService.on("slow_metrics", handleSlowMetrics);
+      }
     } else {
-      socketService.off("fast_metrics");
-      socketService.off("medium_metrics");
-      socketService.off("slow_metrics");
+      if (typeof (socketService as any).off === "function") {
+        socketService.off("fast_metrics");
+        socketService.off("medium_metrics");
+        socketService.off("slow_metrics");
+      }
 
       const interval = INTERVAL_MAP[refreshMode];
       intervalRef.current = setInterval(fetchInitial, interval);
     }
 
     return () => {
-      socketService.off("fast_metrics");
-      socketService.off("medium_metrics");
-      socketService.off("slow_metrics");
+      if (typeof (socketService as any).off === "function") {
+        socketService.off("fast_metrics");
+        socketService.off("medium_metrics");
+        socketService.off("slow_metrics");
+      }
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [refreshMode, handleFastMetrics, handleMediumMetrics, handleSlowMetrics, fetchInitial]);
+  }, [
+    refreshMode,
+    handleFastMetrics,
+    handleMediumMetrics,
+    handleSlowMetrics,
+    fetchInitial
+  ]);
 
   return (
     <MetricsContext.Provider
