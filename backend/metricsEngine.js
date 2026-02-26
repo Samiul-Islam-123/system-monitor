@@ -116,6 +116,14 @@ class MetricsEngine {
 
     this.io.emit("slow_metrics", this.slowCache);
   }
+
+  getCurrent() {
+  return {
+    fast: null, // fast is live-only (socket-based)
+    medium: this.mediumCache,
+    slow: this.slowCache
+  };
+}
 }
 
 module.exports = MetricsEngine;

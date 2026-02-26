@@ -32,8 +32,7 @@ const engine = new MetricsEngine(io);
 engine.start();
 
 // Example route (make sure this exists)
-app.get("/api/metrics/current", async (req, res) => {
-  await engine.collect();
+app.get("/api/metrics/current", (req, res) => {
   res.json(engine.getCurrent());
 });
 
