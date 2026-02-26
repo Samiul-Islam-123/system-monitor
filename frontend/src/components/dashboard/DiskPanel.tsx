@@ -22,7 +22,7 @@ export function DiskPanel() {
       <div className="metric-card flex flex-col gap-3 p-4 bg-muted rounded-lg">
         <div className="flex items-center gap-2">
           <HardDrive className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-sm font-semibold">Disk Usage</h3>
+          <h3 className="text-sm font-semibold">Disk I/O</h3>
         </div>
         <div className="flex items-center justify-center h-32">
           <div className="text-muted-foreground">Loading...</div>
@@ -35,21 +35,19 @@ export function DiskPanel() {
     <div className="metric-card flex flex-col gap-3">
       <div className="flex items-center gap-2">
         <HardDrive className="h-4 w-4 text-chart-disk" />
-        <h3 className="text-sm font-semibold">Disk Usage</h3>
+        <h3 className="text-sm font-semibold">Disk I/O</h3>
       </div>
 
       <div className="space-y-4">
-        {metrics.disks.map((disk) => {
-          const percent = (disk.used / disk.total) * 100;
-          const free = disk.total - disk.used;
+        {metrics.disks.map((disk, index) => {
+          const totalIO = (disk.readSpeed || 0) + (disk.writeSpeed || 0);
           const pieData = [
-            { name: 'Used', value: disk.used },
-            { name: 'Free', value: free },
+            { name: 'Read', value: disk.readSpeed || 0 },
+            { name: 'Write', value: disk.writeSpeed || 0 },
           ];
-          const fillColor = percent > 90 ? 'hsl(var(--danger))' : percent > 70 ? 'hsl(var(--warning))' : 'hsl(var(--chart-disk))';
 
           return (
-            <div key={disk.device} className="flex items-center gap-3">
+            <div key={`disk-${index}`} className="flex items-center gap-3">
               {/* Pie chart */}
               <div className="w-16 h-16 shrink-0">
                 <ResponsiveContainer width="100%" height="100%">
@@ -64,8 +62,8 @@ export function DiskPanel() {
                       strokeWidth={0}
                       isAnimationActive={false}
                     >
-                      <Cell fill={fillColor} />
-                      <Cell fill="hsl(var(--muted))" />
+                      <Cell fill="hsl(var(--chart-network-up))" />
+                      <Cell fill="hsl(var(--chart-network-down))" />
                     </Pie>
                     <Tooltip
                       contentStyle={{
@@ -74,7 +72,7 @@ export function DiskPanel() {
                         borderRadius: '6px',
                         fontSize: '11px',
                       }}
-                      formatter={(value: number) => `${value} GB`}
+                      formatter={(value: number) => `${value.toFixed(1)} MB/s`}
                     />
                   </PieChart>
                 </ResponsiveContainer>
@@ -84,22 +82,26 @@ export function DiskPanel() {
               <div className="flex-1 min-w-0 space-y-1">
                 <div className="flex items-center justify-between text-xs">
                   <div className="font-mono truncate">
-                    <span className="font-medium">{disk.mountPoint}</span>
-                    <span className="text-muted-foreground ml-1.5">({disk.device})</span>
+                    <span className="font-medium">Disk {index + 1}</span>
+                    <span className="text-muted-foreground ml-1.5">({disk.device || 'Unknown'})</span>
                   </div>
-                  <span className="font-mono font-bold" style={{ color: fillColor }}>
-                    {percent.toFixed(1)}%
+                  <span className="font-mono font-bold text-chart-disk">
+                    {totalIO.toFixed(1)} MB/s
                   </span>
                 </div>
                 <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-500"
-                    style={{ width: `${percent}%`, backgroundColor: fillColor }}
+                    style={{ width: `${Math.min(100, totalIO * 2)}%`, backgroundColor: 'hsl(var(--chart-disk))' }}
                   />
                 </div>
                 <div className="flex justify-between text-[10px] text-muted-foreground font-mono">
-                  <span>{disk.used}/{disk.total} GB · {disk.fsType}</span>
-                  <span>R: {disk.readSpeed} · W: {disk.writeSpeed} MB/s</span>
+                  <span>R: {(disk.readSpeed || 0).toFixed(1)} MB/s</span>
+                  <span>W: {(disk.writeSpeed || 0).toFixed(1)} MB/s</span>
+                </div>
+                <div className="flex justify-between text-[10px] text-muted-foreground font-mono">
+                  <span>I/O: {(disk.rIO || 0).toFixed(1)} r/s</span>
+                  <span>I/O: {(disk.wIO || 0).toFixed(1)} w/s</span>
                 </div>
               </div>
             </div>

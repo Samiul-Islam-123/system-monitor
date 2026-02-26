@@ -50,8 +50,8 @@ export function QuickStats() {
       { label: 'CPU', icon: Cpu },
       { label: 'Memory', icon: MemoryStick },
       { label: 'GPU', icon: Monitor },
-      { label: 'Disk /', icon: HardDrive },
-      { label: 'CPU Temp', icon: Thermometer },
+      { label: 'Disk I/O', icon: HardDrive },
+      { label: 'Temp', icon: Thermometer },
     ];
 
     return (
@@ -72,10 +72,10 @@ export function QuickStats() {
     );
   }
 
-  // Calculate percentages safely with fallback values
-  const memPercent = metrics.memory && metrics.memory.total > 0 ? (metrics.memory.used / metrics.memory.total) * 100 : 0;
-  const diskPercent = metrics.disks && metrics.disks.length > 0 && metrics.disks[0]?.total > 0 ? (metrics.disks[0].used / metrics.disks[0].total) * 100 : 0;
-  const gpuMemPercent = metrics.gpu && metrics.gpu.memoryTotal > 0 ? (metrics.gpu.memoryUsed / metrics.gpu.memoryTotal) * 100 : 0;
+  // Use the converted data with defensive checks
+  const memPercent = metrics.memory?.total ? ((metrics.memory.used || 0) / (metrics.memory.total || 1)) * 100 : 0;
+  const diskPercent = 0; // Will use I/O stats instead
+  const gpuPercent = metrics.gpu?.utilization || 0;
 
   const stats = [
     {
@@ -88,36 +88,36 @@ export function QuickStats() {
     },
     {
       label: 'Memory',
-      value: `${memPercent.toFixed(1)}%`,
-      sub: `${(metrics.memory?.used || 0).toFixed(1)}/${metrics.memory?.total || 0} GB`,
-      percent: memPercent,
+      value: `${(memPercent || 0).toFixed(1)}%`,
+      sub: `${(metrics.memory?.used || 0).toFixed(1)}/${metrics.memory?.total || 1} GB`,
+      percent: memPercent || 0,
       icon: MemoryStick,
       color: 'hsl(var(--chart-memory))',
       textColor: 'text-chart-memory',
     },
     {
       label: 'GPU',
-      value: `${(metrics.gpu?.utilization || 0).toFixed(1)}%`,
-      sub: `VRAM ${(gpuMemPercent || 0).toFixed(0)}% · ${metrics.gpu?.temperature || 0}°C`,
-      percent: metrics.gpu?.utilization || 0,
+      value: `${(gpuPercent || 0).toFixed(1)}%`,
+      sub: metrics.gpu?.name ? `${metrics.gpu.name}` : 'No GPU',
+      percent: gpuPercent || 0,
       icon: Monitor,
       color: 'hsl(var(--chart-gpu))',
       textColor: 'text-chart-gpu',
     },
     {
-      label: 'Disk /',
-      value: `${diskPercent.toFixed(1)}%`,
-      sub: `${metrics.disks[0]?.used || 0}/${metrics.disks[0]?.total || 0} GB`,
-      percent: diskPercent,
+      label: 'Disk I/O',
+      value: `${(metrics.disks[0]?.readSpeed || 0).toFixed(1)}`,
+      sub: `R: ${(metrics.disks[0]?.readSpeed || 0).toFixed(1)} W: ${(metrics.disks[0]?.writeSpeed || 0).toFixed(1)} MB/s`,
+      percent: Math.min(100, (metrics.disks[0]?.readSpeed || 0) + (metrics.disks[0]?.writeSpeed || 0)),
       icon: HardDrive,
-      color: diskPercent > 90 ? 'hsl(var(--danger))' : diskPercent > 70 ? 'hsl(var(--warning))' : 'hsl(var(--chart-disk))',
-      textColor: diskPercent > 90 ? 'text-danger' : diskPercent > 70 ? 'text-warning' : 'text-chart-disk',
+      color: 'hsl(var(--chart-disk))',
+      textColor: 'text-chart-disk',
     },
     {
       label: 'CPU Temp',
       value: `${metrics.temperatures[0]?.value || 0}°C`,
-      sub: `Max ${metrics.temperatures[0]?.max || 0}°C`,
-      percent: metrics.temperatures[0] && metrics.temperatures[0].critical > 0 ? (metrics.temperatures[0].value / metrics.temperatures[0].critical) * 100 : 0,
+      sub: `Main CPU`,
+      percent: (metrics.temperatures[0]?.value || 0),
       icon: Thermometer,
       color: (metrics.temperatures[0]?.value || 0) > 75 ? 'hsl(var(--danger))' : 'hsl(var(--chart-temp))',
       textColor: (metrics.temperatures[0]?.value || 0) > 75 ? 'text-danger' : 'text-chart-temp',

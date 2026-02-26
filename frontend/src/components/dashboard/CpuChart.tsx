@@ -37,6 +37,11 @@ export function CpuChart() {
   }
 
   const { cpu } = metrics;
+  
+  // Use the converted data with fallbacks
+  const cpuUsage = cpu?.overall || 0;
+  const loadAvg = cpu?.loadAvg || [0, 0, 0];
+  const model = cpu?.model || 'Unknown CPU';
 
   return (
     <div className="chart-container flex flex-col gap-3">
@@ -46,20 +51,20 @@ export function CpuChart() {
           <h3 className="text-sm font-semibold">CPU Usage</h3>
         </div>
         <span className="text-2xl font-bold font-mono text-chart-cpu">
-          {cpu.overall.toFixed(1)}%
+          {(cpuUsage || 0).toFixed(1)}%
         </span>
       </div>
 
       {/* Model info */}
       <div className="flex items-center justify-between text-xs text-muted-foreground font-mono">
-        <span>{cpu.model}</span>
-        <span>Load: {cpu.loadAvg.map(l => l.toFixed(2)).join(', ')}</span>
+        <span>{model}</span>
+        <span>Load: {(loadAvg || [0, 0, 0]).map(l => (l || 0).toFixed(2)).join(', ')}</span>
       </div>
 
       {/* Chart */}
       <div className="h-40">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={cpu.history} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+          <AreaChart data={cpu?.history || []} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
             <defs>
               <linearGradient id="cpuGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="hsl(var(--chart-cpu))" stopOpacity={0.3} />
@@ -90,28 +95,24 @@ export function CpuChart() {
         </ResponsiveContainer>
       </div>
 
-      {/* Core grid */}
+      {/* Core info - simplified since we don't have core data */}
       <div className="grid grid-cols-4 gap-2">
-        {cpu.cores.map((core) => (
-          <div key={core.id} className="bg-secondary rounded p-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Core {core.id}</span>
-              <span className="font-mono font-medium">{core.usage.toFixed(0)}%</span>
-            </div>
-            <div className="mt-1 h-1 bg-muted rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all duration-500"
-                style={{
-                  width: `${core.usage}%`,
-                  backgroundColor: core.usage > 80 ? 'hsl(var(--danger))' : core.usage > 50 ? 'hsl(var(--warning))' : 'hsl(var(--chart-cpu))',
-                }}
-              />
-            </div>
-            <div className="text-[10px] text-muted-foreground font-mono mt-1">
-              {core.frequency} MHz · {core.temperature}°C
-            </div>
-          </div>
-        ))}
+        <div className="bg-secondary rounded p-2 text-center">
+          <div className="text-xs text-muted-foreground">Cores</div>
+          <div className="font-mono font-medium">--</div>
+        </div>
+        <div className="bg-secondary rounded p-2 text-center">
+          <div className="text-xs text-muted-foreground">Freq</div>
+          <div className="font-mono font-medium">-- MHz</div>
+        </div>
+        <div className="bg-secondary rounded p-2 text-center">
+          <div className="text-xs text-muted-foreground">Temp</div>
+          <div className="font-mono font-medium">--°C</div>
+        </div>
+        <div className="bg-secondary rounded p-2 text-center">
+          <div className="text-xs text-muted-foreground">Uptime</div>
+          <div className="font-mono font-medium">--</div>
+        </div>
       </div>
     </div>
   );

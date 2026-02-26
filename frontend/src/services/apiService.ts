@@ -1,7 +1,7 @@
 import axios from 'axios';
-import { SystemMetrics } from '@/lib/mockData';
+import type { ApiSystemMetrics } from '@/types/apiMetrics';
 
-const API_BASE_URL = 'http://100.89.71.38:5000/api';
+const API_BASE_URL = 'http://localhost:5000/api';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -9,12 +9,12 @@ const apiClient = axios.create({
 });
 
 export const apiService = {
-  async getCurrentMetrics(): Promise<SystemMetrics> {
+  async getCurrentMetrics(): Promise<ApiSystemMetrics> {
     const response = await apiClient.get('/metrics/current');
     return response.data;
   },
 
-  async getHistoryMetrics(): Promise<SystemMetrics> {
+  async getHistoryMetrics(): Promise<ApiSystemMetrics> {
     const response = await apiClient.get('/metrics/history');
     return response.data;
   },

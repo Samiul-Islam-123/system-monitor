@@ -37,8 +37,8 @@ export function MemoryChart() {
   }
 
   const { memory } = metrics;
-  const usedPercent = ((memory.used / memory.total) * 100).toFixed(1);
-  const swapPercent = memory.swapTotal > 0 ? ((memory.swapUsed / memory.swapTotal) * 100).toFixed(1) : '0';
+  const usedPercent = ((memory.used / memory.total) * 100);
+  const swapPercent = memory.swapTotal > 0 ? ((memory.swapUsed / memory.swapTotal) * 100) : 0;
 
   return (
     <div className="chart-container flex flex-col gap-3">
@@ -48,7 +48,7 @@ export function MemoryChart() {
           <h3 className="text-sm font-semibold">Memory</h3>
         </div>
         <span className="text-2xl font-bold font-mono text-chart-memory">
-          {usedPercent}%
+          {usedPercent.toFixed(1)}%
         </span>
       </div>
 
@@ -88,7 +88,7 @@ export function MemoryChart() {
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
             <XAxis dataKey="time" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
-            <YAxis domain={[0, 16]} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
+            <YAxis domain={[0, memory.total]} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
             <Tooltip
               contentStyle={{
                 backgroundColor: 'hsl(var(--card))',
@@ -107,7 +107,7 @@ export function MemoryChart() {
       <div>
         <div className="flex justify-between text-xs text-muted-foreground mb-1">
           <span>RAM {memory.used.toFixed(1)} / {memory.total} GB</span>
-          <span>Swap {swapPercent}%</span>
+          <span>Swap {swapPercent.toFixed(1)}%</span>
         </div>
         <div className="h-2 bg-muted rounded-full overflow-hidden flex">
           <div className="h-full transition-all duration-500" style={{ width: `${(memory.used / memory.total) * 100}%`, backgroundColor: 'hsl(var(--chart-memory))' }} />

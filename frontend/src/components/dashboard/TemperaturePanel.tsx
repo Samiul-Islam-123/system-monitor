@@ -24,17 +24,15 @@ export function TemperaturePanel() {
           <h3 className="text-sm font-semibold">Temperatures</h3>
         </div>
         <div className="space-y-2.5">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={`loading-${i}`} className="space-y-1">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Sensor {i}</span>
-                <span className="font-mono font-medium text-muted-foreground">--°C</span>
-              </div>
-              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                <div className="h-full rounded-full bg-muted" style={{ width: '0%' }} />
-              </div>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">CPU</span>
+              <span className="font-mono font-medium text-muted-foreground">--°C</span>
             </div>
-          ))}
+            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+              <div className="h-full rounded-full bg-muted" style={{ width: '0%' }} />
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -68,6 +66,9 @@ export function TemperaturePanel() {
                   className="h-full rounded-full transition-all duration-500"
                   style={{ width: `${Math.min(percent, 100)}%`, backgroundColor: color }}
                 />
+              </div>
+              <div className="text-[10px] text-muted-foreground text-center">
+                Max: {sensor.max}°C | Critical: {sensor.critical}°C
               </div>
             </div>
           );

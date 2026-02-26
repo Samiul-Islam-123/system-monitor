@@ -46,6 +46,8 @@ export interface DiskPartition {
   used: number;
   readSpeed: number; // MB/s
   writeSpeed: number; // MB/s
+  rIO?: number; // Read I/O operations per second
+  wIO?: number; // Write I/O operations per second
 }
 
 export interface NetworkInterface {

@@ -50,8 +50,8 @@ export function ProcessTable() {
     );
   }
 
-  const sorted = [...metrics.processes].sort((a, b) =>
-    sortBy === 'cpu' ? b.cpu - a.cpu : b.memory - a.memory
+  const sorted = [...(metrics.processes || [])].sort((a, b) =>
+    sortBy === 'cpu' ? (b.cpu || 0) - (a.cpu || 0) : (b.memory || 0) - (a.memory || 0)
   ).slice(0, 12);
 
   return (
@@ -91,29 +91,30 @@ export function ProcessTable() {
               <th className="text-right py-1.5 font-medium">CPU%</th>
               <th className="text-right py-1.5 font-medium">MEM%</th>
               <th className="text-right py-1.5 font-medium">MEM</th>
-              <th className="text-right py-1.5 font-medium">THR</th>
               <th className="text-right py-1.5 font-medium">Status</th>
             </tr>
           </thead>
           <tbody>
             {sorted.map((proc, i) => (
               <tr key={`${proc.pid}-${proc.name}-${i}`} className="border-b border-border/50 hover:bg-secondary/50 transition-colors">
-                <td className="py-1.5 text-muted-foreground">{proc.pid}</td>
-                <td className="py-1.5 font-medium">{proc.name}</td>
-                <td className="py-1.5 text-muted-foreground">{proc.user}</td>
+                <td className="py-1.5 text-muted-foreground">{proc.pid || 0}</td>
+                <td className="py-1.5 font-medium">{proc.name || 'Unknown'}</td>
+                <td className="py-1.5 text-muted-foreground">{proc.user || 'Unknown'}</td>
                 <td className="py-1.5 text-right">
-                  <span style={{ color: proc.cpu > 15 ? 'hsl(var(--danger))' : proc.cpu > 5 ? 'hsl(var(--warning))' : 'inherit' }}>
-                    {proc.cpu.toFixed(1)}
+                  <span style={{ color: (proc.cpu || 0) > 15 ? 'hsl(var(--danger))' : (proc.cpu || 0) > 5 ? 'hsl(var(--warning))' : 'inherit' }}>
+                    {(proc.cpu || 0).toFixed(1)}
                   </span>
                 </td>
-                <td className="py-1.5 text-right">{proc.memory.toFixed(1)}</td>
-                <td className="py-1.5 text-right text-muted-foreground">{proc.memoryMB} MB</td>
-                <td className="py-1.5 text-right text-muted-foreground">{proc.threads}</td>
+                <td className="py-1.5 text-right">{(proc.memory || 0).toFixed(1)}</td>
+                <td className="py-1.5 text-right text-muted-foreground">{(proc.memoryMB || 0).toFixed(0)} MB</td>
                 <td className="py-1.5 text-right">
-                  <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 ${
-                    proc.status === 'running' ? 'bg-success' : proc.status === 'sleeping' ? 'bg-warning' : 'bg-danger'
-                  }`} />
-                  <span className="text-muted-foreground">{proc.status[0].toUpperCase()}</span>
+                  <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 ${{
+                    running: 'bg-success',
+                    sleeping: 'bg-warning',
+                    stopped: 'bg-danger',
+                    zombie: 'bg-destructive'
+                  }[proc.status] || 'bg-muted'}`} />
+                  <span className="text-muted-foreground">{(proc.status || 'unknown')[0].toUpperCase()}</span>
                 </td>
               </tr>
             ))}
