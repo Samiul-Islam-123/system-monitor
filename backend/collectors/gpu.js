@@ -37,4 +37,4 @@ async function getGPU() {
   });
 }
 
-module.exports = { getGPU };
+module.exports =  getGPU ;
