@@ -135,8 +135,8 @@ class MetricsEngine {
       this.slowCache = {
         processes: processes?.list
           ? processes.list
-              .sort((a, b) => b.cpu - a.cpu)
-              .slice(0, 10)
+            .sort((a, b) => b.cpu - a.cpu)
+            .slice(0, 10)
           : [],
         gpu: gpu || null
       };
@@ -151,9 +151,33 @@ class MetricsEngine {
   // ✅ REST SAFE
   getCurrent() {
     return {
-      fast: this.fastCache,
-      medium: this.mediumCache,
-      slow: this.slowCache
+      cpu: {
+        currentLoad: this.fastCache.cpu,
+        loadAvg: this.fastCache.loadAvg
+      },
+
+      memory: {
+        used: this.fastCache.memoryUsed,
+        total: this.fastCache.memoryTotal
+      },
+
+      network: {
+        rxSpeed: this.fastCache.rxSpeed,
+        txSpeed: this.fastCache.txSpeed
+      },
+
+      disks: {
+        rIO: this.mediumCache.diskIO.rIO,
+        wIO: this.mediumCache.diskIO.wIO
+      },
+
+      temperatures: {
+        main: this.mediumCache.temperature
+      },
+
+      processes: this.slowCache.processes,
+
+      gpu: this.slowCache.gpu
     };
   }
 }

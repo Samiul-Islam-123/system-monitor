@@ -10,7 +10,7 @@ class SocketService {
       this.disconnect();
     }
 
-    this.socket = io('http://localhost:5000', {
+    this.socket = io('http://100.89.71.38:5000', {
       transports: ['websocket'],
       reconnection: true,
       reconnectionAttempts: 5,
