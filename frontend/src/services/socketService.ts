@@ -10,7 +10,7 @@ class SocketService {
       this.disconnect();
     }
 
-    this.socket = io('http://localhost:5000', {
+    this.socket = io(window.location.origin, {
       transports: ['websocket'],
       reconnection: true,
       reconnectionAttempts: 5,
