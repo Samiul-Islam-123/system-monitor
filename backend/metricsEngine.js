@@ -1,6 +1,6 @@
 const si = require("systeminformation");
 const os = require("os");
-const { getGPU } = require("./collectors/gpu");
+const getGPU = require("./collectors/gpu");
 
 class MetricsEngine {
   constructor(io) {
