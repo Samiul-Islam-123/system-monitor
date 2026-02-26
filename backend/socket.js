@@ -1,7 +1,13 @@
 const { Server } = require("socket.io");
 
 module.exports = function (server, engine) {
-  const io = new Server(server, { cors: { origin: "*" } });
+  const io = new Server(server, { 
+    cors: { 
+      origin: ["http://localhost:8080", "http://localhost:3000"],
+      methods: ["GET", "POST"],
+      credentials: true
+    } 
+  });
 
   io.on("connection", socket => {
     socket.on("request_metrics", () => {
